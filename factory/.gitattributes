@@ -1,0 +1,5 @@
+# Scripts must keep LF line endings on every OS, or bash and node shebangs break on Linux / cloud runners.
+* text=auto eol=lf
+
+# Windows batch files need CRLF
+*.cmd text eol=crlf
