@@ -1,0 +1,46 @@
+{
+  "$comment": "Per-project factory config, saved as .factory/config.json and frozen in the plan commit. Globs: ** any depth, * within a folder. A file matching 'tests' is a test file even if it also matches 'src' (Go and Rust keep tests next to code). Placeholders: {ticket} = ticket stem (01-bulk-discount), {ticket_snake} = 01_bulk_discount, {file}, {name}, {out}.",
+  "language": "typescript",
+  "paths": {
+    "src": ["src/**"],
+    "tests": ["tests/**"]
+  },
+  "testFile": "tests/{ticket}.test.ts",
+  "commands": {
+    "test": "npx vitest run",
+    "testFile": "npx vitest run {file}",
+    "testOne": "npx vitest run {file} -t {name}",
+    "junit": "npx vitest run {file} --reporter=junit --outputFile={out}",
+    "typecheck": "npx tsc --noEmit"
+  },
+  "env": {
+    "pathPrepend": []
+  },
+  "examples": {
+    "python": {
+      "language": "python",
+      "paths": { "src": ["cart/**"], "tests": ["tests/**"] },
+      "testFile": "tests/test_{ticket_snake}.py",
+      "commands": {
+        "test": "python -m pytest -q",
+        "testFile": "python -m pytest -q {file}",
+        "testOne": "python -m pytest -q {file} -k {name}",
+        "junit": "python -m pytest -q {file} --junitxml={out}",
+        "typecheck": null
+      },
+      "env": { "pathPrepend": [".venv/Scripts", ".venv/bin"] }
+    },
+    "go": {
+      "language": "go",
+      "paths": { "src": ["internal/**", "cmd/**"], "tests": ["**/*_test.go"] },
+      "testFile": "internal/cart/t{ticket_snake}_test.go",
+      "commands": {
+        "test": "go test ./...",
+        "testFile": "go test ./internal/cart/",
+        "testOne": "go test ./internal/cart/ -run {name}",
+        "junit": "gotestsum --junitfile {out} -- ./internal/cart/",
+        "typecheck": "go vet ./..."
+      }
+    }
+  }
+}

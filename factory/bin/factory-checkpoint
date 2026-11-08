@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# The factory referee, put on PATH for role processes by run-role.sh. Locates the factory from its own path.
+exec node "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/checkpoint.mjs" "$@"
