@@ -28,3 +28,9 @@ rm -rf "$dst.old"
 mv "$dst.new" "$dst"
 rm -rf "$dst.old"
 echo "matt-skills updated to $commit"
+
+# Refresh the slash commands wherever install-matt-commands.sh put them before.
+skills_dir="$(cd "$here/.." && pwd)/skills"
+if [ -f "$skills_dir/.matt-commands-manifest" ]; then
+  bash "$here/install-matt-commands.sh" "$skills_dir"
+fi
