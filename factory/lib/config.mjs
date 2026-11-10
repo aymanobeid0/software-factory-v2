@@ -3,17 +3,50 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
 
 export const FACTORY_HOME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-export function loadConfig(root) {
-  const p = path.join(root, ".factory", "config.json");
-  if (!fs.existsSync(p)) return null;
-  const c = JSON.parse(fs.readFileSync(p, "utf8"));
+function check(c) {
   for (const k of ["paths", "testFile", "commands"]) {
     if (!c[k]) throw new Error(`.factory/config.json is missing "${k}"`);
   }
   return c;
+}
+
+export function loadConfigFile(p) {
+  if (!fs.existsSync(p)) return null;
+  return check(JSON.parse(fs.readFileSync(p, "utf8")));
+}
+
+export function loadConfig(root) {
+  return loadConfigFile(path.join(root, ".factory", "config.json"));
+}
+
+// The config as frozen in git (HEAD), not the copy on disk: code a role runs (its tests) could rewrite
+// the file on disk, but it cannot change what the plan commit holds. Falls back to disk when the file
+// isn't committed yet (the planner checking its commands before the freeze).
+export function loadFrozenConfig(root) {
+  const r = spawnSync("git", ["show", "HEAD:.factory/config.json"], { cwd: root, encoding: "utf8" });
+  if (r.status === 0 && r.stdout.trim()) return check(JSON.parse(r.stdout));
+  return loadConfig(root);
+}
+
+// Ticket stems from tickets/*.md, in order.
+export function listTickets(root) {
+  const dir = path.join(root, "tickets");
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir).filter((f) => f.endsWith(".md")).map((f) => f.slice(0, -3)).sort();
+}
+
+// Tickets the orchestrator has already marked done in .factory/state.json.
+export function doneTickets(root) {
+  try {
+    const s = JSON.parse(fs.readFileSync(path.join(root, ".factory", "state.json"), "utf8"));
+    return Object.entries(s.tickets || {}).filter(([, st]) => st === "green" || st === "reviewed").map(([t]) => t).sort();
+  } catch {
+    return [];
+  }
 }
 
 // Glob -> RegExp. ** = any depth (including none), * = within one folder, ? = one char.

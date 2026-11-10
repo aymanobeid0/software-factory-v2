@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Run one factory role as its own isolated agent process, in the current project.
-# Usage: bash <factory>/run-role.sh <tester|implementer|verifier|reviewer> "<prompt>"
+# Usage: bash <factory>/run-role.sh <tester|test-reviewer|implementer|reviewer> "<prompt>"
+# (There is no verifier role: verification is a script, <factory>/verify.mjs.)
 # Runtime: chosen by setup.sh and saved in <factory>/runtime.conf (runtime=claude|codex, optional
 # codex_model=...). FACTORY_RUNTIME / FACTORY_CODEX_MODEL override it for one run.
 # Output is printed and also saved to .factory/logs/<n>-<role>.txt
@@ -25,12 +26,17 @@ case "$role" in
   tester)      skills="engineering/tdd/SKILL.md engineering/tdd/tests.md engineering/tdd/mocking.md"; tools="Read,Grep,Glob,Write,Edit,Bash" ;;
   implementer) skills="engineering/implement/SKILL.md engineering/tdd/SKILL.md"; tools="Read,Grep,Glob,Write,Edit,Bash" ;;
   reviewer)    skills="engineering/code-review/SKILL.md"; tools="Read,Grep,Glob,Bash" ;;
-  verifier)    skills=""; tools="Read,Grep,Glob,Bash" ;;
+  test-reviewer) skills="engineering/tdd/tests.md engineering/tdd/mocking.md"; tools="Read,Grep,Glob,Bash" ;;
 esac
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 guard="$(native "$here/hooks/guard.mjs")"
+# The role's rules come from the config as frozen in git, copied outside the project for this run, so
+# nothing the role does or runs can loosen its own guard.
+git show HEAD:.factory/config.json > "$tmp/config.json" 2>/dev/null || cp .factory/config.json "$tmp/config.json"
+cfgsnap="$(native "$tmp/config.json")"
+export FACTORY_CONFIG_SNAPSHOT="$cfgsnap"
 
 # Instructions for the role: its definition, the project's setup, then its Matt skills.
 {
@@ -39,7 +45,7 @@ guard="$(native "$here/hooks/guard.mjs")"
   echo "# Project setup (from .factory/config.json, frozen with the plan)"
   echo
   node -e '
-    const c = JSON.parse(require("fs").readFileSync(".factory/config.json","utf8"));
+    const c = JSON.parse(require("fs").readFileSync(process.env.FACTORY_CONFIG_SNAPSHOT,"utf8"));
     const cmd = c.commands;
     const lines = [
       `Language: ${c.language || "unspecified"}`,
@@ -54,6 +60,7 @@ guard="$(native "$here/hooks/guard.mjs")"
     console.log(lines.map(l => "- " + l).join("\n"));'
   if [ "$role" = implementer ]; then
     echo "- Checkpoint (the referee, already on your PATH): factory-checkpoint <ticket> <words from the test name>"
+    echo "- Fix checkpoint (a change no red test asks for): factory-checkpoint --fix <ticket> <what was fixed>"
   fi
   if [ -n "$skills" ]; then
     echo
@@ -75,14 +82,14 @@ guard="$(native "$here/hooks/guard.mjs")"
 while IFS= read -r d; do
   d="${d%$'\r'}"
   [ -n "$d" ] && [ -d "$d" ] && PATH="$(cd "$d" && pwd):$PATH"
-done < <(node -e 'const c=JSON.parse(require("fs").readFileSync(".factory/config.json","utf8"));for(const d of (c.env?.pathPrepend||[]))console.log(d)')
+done < <(node -e 'const c=JSON.parse(require("fs").readFileSync(process.env.FACTORY_CONFIG_SNAPSHOT,"utf8"));for(const d of (c.env?.pathPrepend||[]))console.log(d)')
 export PATH="$here/bin:$PATH"
 export FACTORY_ROLE="$role"
 
 case "$runtime" in
   claude)
     cat > "$tmp/settings.json" <<EOF
-{ "hooks": { "PreToolUse": [ { "matcher": "*", "hooks": [ { "type": "command", "command": "node \"$guard\" $role" } ] } ] } }
+{ "hooks": { "PreToolUse": [ { "matcher": "*", "hooks": [ { "type": "command", "command": "node \"$guard\" $role \"$cfgsnap\"" } ] } ] } }
 EOF
     # The prompt goes in on stdin: the tool flags are variadic and would swallow a trailing argument.
     printf '%s' "$prompt" | claude -p \
@@ -104,7 +111,7 @@ EOF
       --skip-git-repo-check --ephemeral \
       -s workspace-write --add-dir "$(native "$(pwd)/.git")" \
       --dangerously-bypass-hook-trust \
-      -c "hooks.PreToolUse=[{matcher=\"*\",hooks=[{type=\"command\",command='node \"$guard\" $role'}]}]" \
+      -c "hooks.PreToolUse=[{matcher=\"*\",hooks=[{type=\"command\",command='node \"$guard\" $role \"$cfgsnap\"'}]}]" \
       -c 'shell_environment_policy.inherit="all"' \
       - < "$tmp/prompt.md" 2>&1 | tee "$log"
     ;;
