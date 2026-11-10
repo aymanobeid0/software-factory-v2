@@ -169,7 +169,8 @@ test("default deny: unknown tools, unknown roles, no config, bad input", () => {
   assert.equal(guard("verifier", ts, "Read", { file_path: "src/cart.ts" }), BLOCK);
   assert.equal(guard("boss", ts, "Read", { file_path: "src/cart.ts" }), BLOCK);
   assert.equal(guard("implementer", project(null), "Read", { file_path: "src/cart.ts" }), BLOCK);
-  assert.equal(spawnSync("node", [GUARD, "implementer"], { input: "not json", encoding: "utf8" }).status, BLOCK);
+  // Run from a temp folder: with no readable input the guard logs to its own cwd.
+  assert.equal(spawnSync("node", [GUARD, "implementer"], { input: "not json", encoding: "utf8", cwd: project(null) }).status, BLOCK);
 });
 
 test("the config snapshot wins over the file on disk", () => {
