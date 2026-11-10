@@ -83,3 +83,14 @@ The factory was copied into the repo's `.claude/` (factory, agents, skills) and 
 | Line endings | Found during setup: Git on Windows would turn the scripts into CRLF, which breaks bash on Linux and in the cloud. Added `.claude/factory/.gitattributes` (`eol=lf`). A fresh clone with `core.autocrlf=true` keeps 0 CR characters in the scripts. |
 
 16. A factory that works from `~/.claude` can still fail from a repo in small ways (line endings, `cd` habits). Only running it with the user install **removed** proves the project copy stands alone.
+
+## Change 7: scripted verifier, fix checkpoints, test review, harder guard (from a code review, not yet run live)
+A review of the factory's own code found places where its promise ("no agent's word counts") did not hold. Fixed:
+- **The verifier is now a script** (`verify.mjs`, modes `red`, `ticket`, `green`), not an agent. The `verifier` role is gone.
+- **Fix checkpoints:** `factory-checkpoint --fix <ticket> <what>` commits a repair that has no red test (a typecheck error, a regression, a safeguard). Before, the referee rejected it and un-refereed changes failed verification, so the line always stopped for the human. A fix must keep everything green, keep the typecheck clean, and turn no red test green.
+- **Earlier tickets are checked at every checkpoint**, so a regression is rejected when it happens.
+- **Test reviewer:** a new read-only role checks, before the tests freeze, that every acceptance criterion has a test that would catch it built wrong. Before, nobody reviewed the tests.
+- **Guard:** line breaks are blocked like `;`; project commands are allowed only in the exact shape the config gives (no extra options such as `--outputFile=`); `git --output/--no-index/--ext-diff`, `rg --pre`, `sed` beyond printing a line range, `find -fprint0`, `tree -o` and outside-project `Glob` patterns are blocked; the guard, referee and verifier read the config frozen in git, not the copy on disk.
+- **The factory's own tests** are in `factory/tests/` (19 tests: guard cases for TypeScript, Python and Go, and the referee and verifier on a fake project), run in CI on Linux and Windows.
+
+Still open: these changes are tested with the scripts' own tests only. A full pipeline run with Claude Code, and the first live Codex run, are pending. The guard judges tool calls and is not a sandbox: code a role may run (its tests) still runs with the role's OS permissions, and `verify.mjs` detects the result rather than preventing it.

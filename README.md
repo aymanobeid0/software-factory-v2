@@ -34,10 +34,11 @@ When one agent writes the tests, writes the code and reviews it, it can quietly 
 | Planner (you + the agent) | grills you, writes spec, tickets, project config, seam stubs | plan files | grill-with-docs, to-spec, to-tickets |
 | Tester | red tests at the agreed seams | test files only | tdd |
 | Implementer | one ticket per run, one red → green cycle at a time | source files only | implement + tdd |
-| Verifier | runs every check itself | nothing | — |
+| Test reviewer | checks every spec rule has a test that would catch it built wrong | nothing | tdd (tests.md) |
+| Verifier | **a script** (`verify.mjs`), not an agent: runs every check, prints PASS or FAIL | nothing | — |
 | Reviewer | reviews the diff against the spec and standards | nothing | code-review |
 
-Each role is a separate process. A **guard** hook enforces each role's permissions, built from the project's `.factory/config.json`. A **referee** (`factory-checkpoint`) is the implementer's only way to commit, and it accepts a cycle only if the named test was really red before and is green now. When a role needs something it lacks, it stops with `NEEDS_HUMAN` instead of working around it.
+Each agent role is a separate process. A **guard** hook enforces each role's permissions, built from the project's `.factory/config.json`. A **referee** (`factory-checkpoint`) is the implementer's only way to commit, and it accepts a cycle only if the named test was really red before and is green now (`--fix` covers repairs with no red test: everything must stay green and the typecheck clean). The factory's own tests: `node --test "factory/tests/*.test.mjs"`. When a role needs something it lacks, it stops with `NEEDS_HUMAN` instead of working around it.
 
 ## Use
 1. Run `/factory-plan` in your project. No brief needed: the planner asks what you want, explores the repo, and grills you on the open decisions only.
