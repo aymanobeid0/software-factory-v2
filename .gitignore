@@ -1,0 +1,2 @@
+# Runtime files the factory writes when a script runs from this repo by mistake.
+/.factory/
