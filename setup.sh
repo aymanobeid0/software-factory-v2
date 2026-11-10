@@ -57,6 +57,9 @@ done
 mkdir -p "$dst/skills"
 rm -rf "$dst/factory.new"
 cp -r "$src/factory" "$dst/factory.new"
+# The factory's own tests stay in this repo: in a project, its test runner (vitest, jest...) would pick
+# them up and fail the project's full test run.
+rm -rf "$dst/factory.new/tests"
 rm -rf "$dst/factory"
 mv "$dst/factory.new" "$dst/factory"
 chmod +x "$dst/factory/bin/"* "$dst/factory/"*.sh 2>/dev/null || true
