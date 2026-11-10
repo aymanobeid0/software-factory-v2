@@ -94,3 +94,18 @@ A review of the factory's own code found places where its promise ("no agent's w
 - **The factory's own tests** are in `factory/tests/` (19 tests: guard cases for TypeScript, Python and Go, and the referee and verifier on a fake project), run in CI on Linux and Windows.
 
 Still open: these changes are tested with the scripts' own tests only. A full pipeline run with Claude Code, and the first live Codex run, are pending. The guard judges tool calls and is not a sandbox: code a role may run (its tests) still runs with the role's OS permissions, and `verify.mjs` detects the result rather than preventing it.
+
+## Script run after change 7 (`/home/claude/lab/cart`, TypeScript + vitest 3.2 + tsc 5.9)
+Installed with `setup.sh claude <project>`. The agent roles were played by hand, with every write and command passed through the real guard first, because `claude -p` could not sign in inside the review environment. So this run tests the scripts (setup, `run-role.sh` wiring, guard, referee, verifier) on a real toolchain, not the agents' behaviour.
+
+| Check | Result |
+|---|---|
+| `run-role.sh` (fake `claude` on PATH) | guard hook generated with the frozen-config snapshot; referee on PATH; Project setup and 2 Matt skill files injected |
+| red (`verify.mjs red`) | PASS: 14 tests, 0 passing |
+| ticket 01 | 4 refereed cycles + 1 `--fix`; `verify.mjs ticket` PASS, log matches git |
+| ticket 02 | a change that broke ticket 01 was **rejected at the checkpoint**; then 2 cycles; PASS |
+| green | PASS: 14/14, full run ok, typecheck clean, tests and plan unchanged |
+| a test weakened on disk / config loosened on disk | green FAIL with the right reason; the guard kept the frozen rules |
+| **bug found** | `setup.sh` copied `factory/tests/` into the project, where vitest picked it up, so the full test run (and the green check) would always fail in a JS project. Fixed; `factory/tests/setup.test.mjs` guards it. |
+
+Still pending: a run with live agents (Claude Code), and any Codex run.
